@@ -70,3 +70,6 @@ create table hosts (
 -- \copy hosts from org_host.csv with (format csv, header false);
 
 create index on hosts(org_id);
+
+-- delete useless hosts
+delete from hosts where org_id in (select h.org_id from hosts h left outer join incidents i on (h.org_id = i.org_id) where i.id is null);
