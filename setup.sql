@@ -73,3 +73,21 @@ create index on hosts(org_id);
 
 -- delete useless hosts
 delete from hosts where org_id in (select h.org_id from hosts h left outer join incidents i on (h.org_id = i.org_id) where i.id is null);
+-- delete test accounts
+delete from hosts where org_id = 1655;
+
+create table live_hosts (
+       org_id int primary key,
+       host_count int not null
+);
+
+create index on live_hosts(org_id);
+
+-- populate hosts table with distinct nagios hosts
+alter table hosts add column nagios_hosts int not null default 0;
+
+with dh as (select org_id, count(distinct(host_name)) c from incidents group by org_id)
+update hosts
+   set nagios_hosts = dh.c
+  from dh
+ where hosts.org_id = dh.org_id;
