@@ -37,9 +37,9 @@ update hosts
 commit;
 
 -- distribution of alert count per week for each quartile
-create view weekly_incidents as
+create table weekly as
 select i.org_id,
-       ceiling(h.quantile_5/5) as quartile,
+       (h.quantile_5 - 1)/5 + 1 as quartile,
        sum(i.hourly_count) weekly_incidents,
        sum(i.hourly_count)/h.nagios_hosts normalized_incidents
   from incidents i
@@ -48,6 +48,8 @@ select i.org_id,
  group by occurrence_year, occurrence_week, i.org_id, h.nagios_hosts, h.quantile_5
  having count(*) > 1
  order by h.quantile_5, i.org_id;
+
+create index on weekly(org_id);
 
 -- distribution of weekly alerts by nagios hosts
 select h.nagios_hosts,
