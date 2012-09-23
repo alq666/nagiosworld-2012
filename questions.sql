@@ -28,12 +28,14 @@ select org_id, nagios_hosts, ntile(5) over (order by nagios_hosts) from hosts;
 
 -- persist percentiles
 alter table hosts add column quantile_5 int not null default 0;
+alter table hosts add column quartile int not null default 0;
 begin;
 with quantile as (select org_id, ntile(20) over (order by nagios_hosts) as five from hosts)
 update hosts
    set quantile_5 = q.five
   from quantile q
  where hosts.org_id = q.org_id;
+update hosts set quartile = (quantile_5-1)/5 + 1;
 commit;
 
 -- distribution of alert count per week for each quartile
@@ -51,13 +53,175 @@ select i.org_id,
 
 create index on weekly(org_id);
 
--- distribution of weekly alerts by nagios hosts
-select h.nagios_hosts,
-       sum(i.hourly_count) weekly_incidents,
-       sum(i.hourly_count)/h.nagios_hosts incidents_per_host
+-- worst time of day
+create table worst_hour as
+select (h.quantile_5 - 1)/5 + 1 as quartile,
+       i.occurrence_hour as hour_of_day,
+       avg(i.hourly_count) as hourly,
+       max(i.hourly_count) as hourly_max,
+       stddev(i.hourly_count) as hourly_stddev
   from incidents i
   join hosts h
     on (i.org_id = h.org_id)
- group by occurrence_year, occurrence_week, h.nagios_hosts
- order by h.nagios_hosts, incidents_per_host;
+ where i.auto_priority = 1
+ group by occurrence_hour, (h.quantile_5 - 1) / 5 + 1
+ having count(*) >= 1
+order by quartile, hour_of_day;
+
+-- for us
+create table worst_hour_dd as
+select i.occurrence_hour as hour_of_day,
+       avg(i.hourly_count) as hourly,
+       max(i.hourly_count) as hourly_max,
+       stddev(i.hourly_count) as hourly_stddev
+  from incidents i
+ where i.auto_priority = 1
+   and i.org_id = 2
+ group by occurrence_hour
+ having count(*) >= 1
+order by hour_of_day;
+
+-- worst day of week
+create table worst_day_of_week as
+select (h.quantile_5 - 1)/5 + 1 as quartile,
+       i.occurrence_dow as day_of_week,
+       24.0 * sum(i.hourly_count) / count(i.hourly_count) as daily
+  from incidents i
+  join hosts h
+    on (i.org_id = h.org_id)
+ where i.auto_priority = 1
+ group by occurrence_dow, (h.quantile_5 - 1) / 5 + 1
+ having count(*) >= 1
+order by quartile, day_of_week;
+
+-- for us
+create table worst_day_of_week_dd as
+select i.occurrence_dow as day_of_week,
+       24.0 * sum(i.hourly_count) / count(i.hourly_count) as daily
+  from incidents i
+ where i.auto_priority = 1
+   and org_id = 2
+ group by occurrence_dow
+ having count(*) >= 1
+order by day_of_week;
+  
+-- distribution of alerts per hosts
+create table noisiest_hosts as
+with ranked as (
+select quartile,
+       dense_rank() over(partition by h.quartile
+       		             order by 1.0 * avg(i.hourly_count) desc) rnk,
+       host_name,
+       avg(i.hourly_count) hourly
+  from incidents i
+  join hosts h
+    on (i.org_id = h.org_id)
+ where i.auto_priority = 1
+ group by quartile, host_name
+ having count(*) >= 1
+order by quartile, rnk)
+select quartile, rnk, hourly
+  from ranked
+ group by quartile, rnk, hourly
+ order by quartile, rnk;
+
+create table noisiest_hosts_no_outlier as
+with ranked as (
+select quartile,
+       dense_rank() over(partition by h.quartile
+       		             order by 1.0 * avg(i.hourly_count) desc) rnk,
+       host_name,
+       avg(i.hourly_count) hourly
+  from incidents i
+  join hosts h
+    on (i.org_id = h.org_id)
+ where i.auto_priority = 1
+   and i.org_id <> 1000
+ group by quartile, host_name
+ having count(*) >= 1
+order by quartile, rnk)
+select quartile, rnk, hourly
+  from ranked
+ group by quartile, rnk, hourly
+ order by quartile, rnk;
+
+create table noisiest_hosts_outlier as
+with ranked as (
+select quartile,
+       dense_rank() over(partition by h.quartile
+       		             order by 1.0 * avg(i.hourly_count) desc) rnk,
+       host_name,
+       avg(i.hourly_count) hourly
+  from incidents i
+  join hosts h
+    on (i.org_id = h.org_id)
+ where i.auto_priority = 1
+   and i.org_id = 1000
+ group by quartile, host_name
+ having count(*) >= 1
+order by quartile, rnk)
+select quartile, rnk, hourly
+  from ranked
+ group by quartile, rnk, hourly
+ order by quartile, rnk;
+
+-- Same for services
+create table noisiest_checks as
+with ranked as (
+select quartile,
+       dense_rank() over(partition by h.quartile
+       		             order by 1.0 * avg(i.hourly_count) desc) rnk,
+       check_name,
+       avg(i.hourly_count) hourly
+  from incidents i
+  join hosts h
+    on (i.org_id = h.org_id)
+ where i.auto_priority = 1
+ group by quartile, check_name
+ having count(*) >= 1
+order by quartile, rnk)
+select quartile, rnk, hourly
+  from ranked
+ group by quartile, rnk, hourly
+ order by quartile, rnk;
+
+create table noisiest_checks_no_outlier as
+with ranked as (
+select quartile,
+       dense_rank() over(partition by h.quartile
+       		             order by 1.0 * avg(i.hourly_count) desc) rnk,
+       check_name,
+       avg(i.hourly_count) hourly
+  from incidents i
+  join hosts h
+    on (i.org_id = h.org_id)
+ where i.auto_priority = 1
+   and i.org_id <> 1000
+ group by quartile, check_name
+ having count(*) >= 1
+order by quartile, rnk)
+select quartile, rnk, hourly
+  from ranked
+ group by quartile, rnk, hourly
+ order by quartile, rnk;
+
+create table noisiest_checks_outlier as
+with ranked as (
+select quartile,
+       dense_rank() over(partition by h.quartile
+       		             order by 1.0 * avg(i.hourly_count) desc) rnk,
+       check_name,
+       avg(i.hourly_count) hourly
+  from incidents i
+  join hosts h
+    on (i.org_id = h.org_id)
+ where i.auto_priority = 1
+   and i.org_id = 1000
+ group by quartile, check_name
+ having count(*) >= 1
+order by quartile, rnk)
+select quartile, rnk, hourly
+  from ranked
+ group by quartile, rnk, hourly
+ order by quartile, rnk;
 

@@ -61,6 +61,7 @@ create index on incidents(occurrence_dow);
 create index on incidents(incident_level);
 create index on incidents(check_name);
 create index on incidents(host_name);
+create index on incidents(auto_priority);
 
 create table hosts (
        org_id int primary key,
