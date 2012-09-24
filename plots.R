@@ -29,10 +29,10 @@ noisy_checks <- dbReadTable(con, "noisiest_checks")
 ggplot(noisy_checks, aes(rnk, hourly)) + facet_grid(quartile ~ .) + geom_area() + xlab("Checks ranked by noise") + ylab("Alerts per hour") + ggtitle("Noisiest checks (overall)")
 
 checks_outlier <- dbReadTable(con, "noisiest_checks_outlier")
-ggplot(checks_outlier, aes(rnk, hourly)) + geom_point() + geom_line() + xlab("Hosts ranked by noise") + ylab("Alerts per hour") + ggtitle("Noisiest hosts (outlier)")
+ggplot(checks_outlier, aes(rnk, hourly)) + geom_point() + geom_line() + xlab("Checks ranked by noise") + ylab("Alerts per hour") + ggtitle("Noisiest checks (outlier)")
 
 checks_no_outlier <- dbReadTable(con, "noisiest_checks_no_outlier")
-ggplot(checks_no_outlier, aes(rnk, hourly)) + facet_grid(quartile ~ .) + geom_area() + xlab("Hosts ranked by noise") + ylab("Alerts per hour") + ggtitle("Noisiest hosts (without outlier)")
+ggplot(checks_no_outlier, aes(rnk, hourly)) + facet_grid(quartile ~ .) + geom_area() + xlab("Checks ranked by noise") + ylab("Alerts per hour") + ggtitle("Noisiest checks (without outlier)")
 
 survival <- dbReadTable(con, "survival_occurrence")
 ggplot(survival, aes(age_days, days_occurring, color=factor(quartile))) + geom_point() + scale_colour_brewer(palette="Set1") + xlab("Age between earliest and latest occurrence") + ylab("Number of days occurring") + ggtitle("Alert age & frequency of occurrence")

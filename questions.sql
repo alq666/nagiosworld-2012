@@ -41,6 +41,20 @@ commit;
 -- distribution of alert count per week for each quartile
 create table weekly as
 select i.org_id,
+       h.quartile,
+       sum(i.hourly_count) weekly_incidents,
+       sum(i.hourly_count)/h.nagios_hosts normalized_incidents
+  from incidents i
+  join hosts h
+    on (i.org_id = h.org_id)
+ group by occurrence_year, occurrence_week, i.org_id, h.nagios_hosts, h.quartile
+ having count(*) > 1
+ order by h.quartile, i.org_id;
+
+create index on weekly(org_id);
+
+create table weekly_notifying as
+select i.org_id,
        (h.quantile_5 - 1)/5 + 1 as quartile,
        sum(i.hourly_count) weekly_incidents,
        sum(i.hourly_count)/h.nagios_hosts normalized_incidents
@@ -50,8 +64,6 @@ select i.org_id,
  group by occurrence_year, occurrence_week, i.org_id, h.nagios_hosts, h.quantile_5
  having count(*) > 1
  order by h.quantile_5, i.org_id;
-
-create index on weekly(org_id);
 
 -- worst time of day
 create table worst_hour as
@@ -230,7 +242,7 @@ select quartile, rnk, hourly
 -- related to its occurrence
 create table survival_occurrence as
 select quartile,
-       (max(occurrence_doy) - min(occurrence_doy)) age_days
+       (max(occurrence_doy) - min(occurrence_doy)) age_days,
        count(distinct occurrence_doy) as days_occurring
   from incidents i
   join hosts h
@@ -238,4 +250,5 @@ select quartile,
  where i.auto_priority = 1
    and h.observation >= interval '1 month'
  group by quartile, i.org_id, check_name
+having min(occurrence_doy) < max(occurrence_doy)
  order by quartile, age_days desc;
