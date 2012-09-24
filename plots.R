@@ -3,11 +3,17 @@ library("RPostgreSQL")
 drv <- dbDriver("PostgreSQL")
 con <- dbConnect(drv, dbname="nagios")
 
-hosts <- dbReadTable(con,"hosts")
+hosts <- dbReadTable(con, "hosts")
 ggplot(hosts, aes(nagios_hosts, fill=factor(quartile))) + geom_histogram(binwidth=10) + xlab("Host count") + ylab("Population") + ggtitle("Nagios samples")
+
+notif <- dbReadTable(con, "notification_ratio")
+ggplot(notif, aes(notifying_ratio, colour=factor(quartile))) + geom_point()
 
 w_i <- dbReadTable(con, "weekly")
 qplot(normalized_incidents, data = w_i, geom="histogram", binwidth=5, xlim=c(0, 1000), xlab="Nagios alert per host", ylab="count per week") + facet_grid(quartile ~ .)
+
+wn_i <- dbReadTable(con, "weekly_notifying")
+qplot(normalized_incidents, data = wn_i, geom="histogram", binwidth=1, xlab="Nagios alert per host", ylab="count per week") + facet_grid(quartile ~ .)
 
 h_i <- dbReadTable(con, "worst_hour")
 ggplot(h_i, aes(hour_of_day, hourly, group = hour_of_day)) + geom_boxplot() + xlab("Hour of Day (UTC)") + ylab("Alerts per hour")
