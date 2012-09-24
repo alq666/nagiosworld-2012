@@ -67,6 +67,10 @@ select i.org_id,
  order by h.quartile, i.org_id;
 
 -- notifying v. non-notifying
+create table notification_ratio as
+select quartile,
+       1.0 * max(a) / max(b) notifying_ratio
+  from (
 select h.quartile,
        i.auto_priority notifying,
        case when i.auto_priority = 1 then sum(i.hourly_count) else 0 end a,
@@ -74,7 +78,8 @@ select h.quartile,
   from incidents i
   join hosts h
     on (i.org_id = h.org_id)
- group by h.quartile, i.auto_priority;
+ group by h.quartile, i.auto_priority) as underlying
+ group by quartile;
 
 -- worst time of day
 create table worst_hour as
