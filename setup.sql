@@ -24,6 +24,7 @@ create table incidents (
        occurrence_day int not null,
        occurrence_hour int not null,
        occurrence_dow int not null, -- 1 Monday, 7 Sunday
+       occurrence_doy int not null,
        incident_type varchar not null,
        incident_level varchar not null,
        auto_priority int not null,
@@ -44,6 +45,7 @@ select nextval('incidents_id_seq'),
        extract(day from (raw_date || ':00')::timestamp) as occurrence_day,
        extract(hour from (raw_date || ':00')::timestamp) as occurrence_hour,
        extract(dow from (raw_date || ':00')::timestamp) as occurrence_dow,
+       extract(doy from (raw_date || ':00')::timestamp) as occurrence_doy,
        incident_type,
        incident_level,
        auto_priority,
@@ -92,3 +94,12 @@ update hosts
    set nagios_hosts = dh.c
   from dh
  where hosts.org_id = dh.org_id;
+
+-- add observation period (earliest date, latest date)
+alter table hosts add column observation interval not null default interval '0 hour';
+begin;
+update hosts
+   set observation = (select max(occurrence_date) - min(occurrence_date)
+       		        from incidents i
+                       where i.org_id = hosts.org_id
+		       group by i.org_id);

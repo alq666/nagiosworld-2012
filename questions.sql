@@ -225,3 +225,17 @@ select quartile, rnk, hourly
  group by quartile, rnk, hourly
  order by quartile, rnk;
 
+-- for companies we've watched for over 1 month
+-- is the survival age of alerts
+-- related to its occurrence
+create table survival_occurrence as
+select quartile,
+       (max(occurrence_doy) - min(occurrence_doy)) age_days
+       count(distinct occurrence_doy) as days_occurring
+  from incidents i
+  join hosts h
+    on (i.org_id = h.org_id)
+ where i.auto_priority = 1
+   and h.observation >= interval '1 month'
+ group by quartile, i.org_id, check_name
+ order by quartile, age_days desc;
