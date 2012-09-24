@@ -3,14 +3,13 @@ library("RPostgreSQL")
 drv <- dbDriver("PostgreSQL")
 con <- dbConnect(drv, dbname="nagios")
 
-rs <- dbSendQuery(con,"select * from hosts order by host_count desc")
-hosts <- fetch(rs, n=-1)
+hosts <- dbReadTable(con,"hosts")
+ggplot(hosts, aes(nagios_hosts, fill=factor(quartile))) + geom_histogram(binwidth=10) + xlab("Host count") + ylab("Population") + ggtitle("Nagios samples")
 
 w_i <- dbReadTable(con, "weekly")
 qplot(normalized_incidents, data = w_i, geom="histogram", binwidth=5, xlim=c(0, 1000), xlab="Nagios alert per host", ylab="count per week") + facet_grid(quartile ~ .)
 
-rs <- dbSendQuery(con, "select * from worst_hour")
-h_i <- fetch(rs, ns=-1)
+h_i <- dbReadTable(con, "worst_hour")
 ggplot(h_i, aes(hour_of_day, hourly, group = hour_of_day)) + geom_boxplot() + xlab("Hour of Day (UTC)") + ylab("Alerts per hour")
 ggplot(h_i, aes(hour_of_day, hourly, group = hour_of_day)) + facet_grid(quartile ~ .) + geom_boxplot() + xlab("Hour of Day (UTC)") + ylab("Alerts per hour")
 
@@ -20,20 +19,16 @@ ggplot(dow_i, aes(day_of_week, daily)) + facet_grid(quartile ~ .) + geom_area() 
 noisy_hosts <- dbReadTable(con, "noisiest_hosts")
 ggplot(noisy_hosts, aes(rnk, hourly)) + facet_grid(quartile ~ .) + geom_area() + xlab("Hosts ranked by noise") + ylab("Alerts per hour") + ggtitle("Noisiest hosts (overall)")
 
-rs <- dbSendQuery(con, "select * from noisiest_hosts_outlier")
-noisy_outlier <- fetch(rs, ns=-1)
+noisy_outlier <- dbReadTable(con, "noisiest_hosts_outlier")
 ggplot(noisy_outlier, aes(rnk, hourly)) + geom_point() + geom_line() + xlab("Hosts ranked by noise") + ylab("Alerts per hour") + ggtitle("Noisiest hosts (outlier)")
 
-rs <- dbSendQuery(con, "select * from noisiest_hosts_no_outlier")
-noisy_no_outlier <- fetch(rs, ns=-1)
+noisy_no_outlier <- dbReadTable(con, "noisiest_hosts_no_outlier")
 ggplot(noisy_no_outlier, aes(rnk, hourly)) + facet_grid(quartile ~ .) + geom_area() + xlab("Hosts ranked by noise") + ylab("Alerts per hour") + ggtitle("Noisiest hosts (without outlier)")
 
-rs <- dbSendQuery(con, "select * from noisiest_checks")
-noisy_checks <- fetch(rs, ns=-1)
+noisy_checks <- dbReadTable(con, "noisiest_checks")
 ggplot(noisy_checks, aes(rnk, hourly)) + facet_grid(quartile ~ .) + geom_area() + xlab("Checks ranked by noise") + ylab("Alerts per hour") + ggtitle("Noisiest checks (overall)")
 
-rs <- dbSendQuery(con, "select * from noisiest_checks_outlier")
-checks_outlier <- fetch(rs, ns=-1)
+checks_outlier <- dbReadTable(con, "noisiest_checks_outlier")
 ggplot(checks_outlier, aes(rnk, hourly)) + geom_point() + geom_line() + xlab("Hosts ranked by noise") + ylab("Alerts per hour") + ggtitle("Noisiest hosts (outlier)")
 
 checks_no_outlier <- dbReadTable(con, "noisiest_checks_no_outlier")
