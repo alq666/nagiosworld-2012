@@ -55,15 +55,26 @@ create index on weekly(org_id);
 
 create table weekly_notifying as
 select i.org_id,
-       (h.quantile_5 - 1)/5 + 1 as quartile,
+       h.quartile,
        sum(i.hourly_count) weekly_incidents,
        sum(i.hourly_count)/h.nagios_hosts normalized_incidents
   from incidents i
   join hosts h
     on (i.org_id = h.org_id)
- group by occurrence_year, occurrence_week, i.org_id, h.nagios_hosts, h.quantile_5
+ where i.auto_priority = 1
+ group by occurrence_year, occurrence_week, i.org_id, h.nagios_hosts, h.quartile
  having count(*) > 1
- order by h.quantile_5, i.org_id;
+ order by h.quartile, i.org_id;
+
+-- notifying v. non-notifying
+select h.quartile,
+       i.auto_priority notifying,
+       case when i.auto_priority = 1 then sum(i.hourly_count) else 0 end a,
+       case when i.auto_priority = 0 then sum(i.hourly_count) else 0 end b
+  from incidents i
+  join hosts h
+    on (i.org_id = h.org_id)
+ group by h.quartile, i.auto_priority;
 
 -- worst time of day
 create table worst_hour as
